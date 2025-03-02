@@ -142,7 +142,7 @@ def analizador_lexico(entrada):
     return tokens
 
 def analizador_sintactico(tokens):
-    tabla_proceso = []  # Lista para almacenar las filas de la tabla
+    tabla_proceso = []  #almacenar filas
     pila = [(0, "$")]
     i = 0
     
