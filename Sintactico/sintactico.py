@@ -13,6 +13,31 @@ ESTADO_REAL = 4
 ESTADO_ERROR_REAL = 5
 ESTADO_OPERADOR = 6
 
+# Definición de clases para la pila
+class ElementoPila:
+    pass
+
+class Terminal(ElementoPila):
+    def __init__(self, simbolo):
+        self.simbolo = simbolo
+    
+    def __str__(self):
+        return self.simbolo
+
+class NoTerminal(ElementoPila):
+    def __init__(self, simbolo):
+        self.simbolo = simbolo
+    
+    def __str__(self):
+        return self.simbolo
+
+class Estado(ElementoPila):
+    def __init__(self, numero):
+        self.numero = numero
+    
+    def __str__(self):
+        return str(self.numero)
+
 # Tabla LR(1)
 idReglas = [2, 2]  
 lonReglas = [3, 1]  
@@ -25,8 +50,8 @@ tablaLR = {
     (3, "IDENTIFICADOR"): "d2",
     (3, "E"): "4",
     (4, "OPERADOR"): "d3",
-    (4, "FIN_DE_CADENA"): "r1",  
-    (1, "FIN_DE_CADENA"): "r0",  
+    (4, "FIN_DE_CADENA"): "r1",
+    (1, "FIN_DE_CADENA"): "r0",
 }
 
 def analizador_lexico(entrada):
@@ -141,13 +166,24 @@ def analizador_lexico(entrada):
 
     return tokens
 
+
 def analizador_sintactico(tokens):
-    tabla_proceso = []  #almacenar filas
-    pila = [(0, "$")]
+    tabla_proceso = []  # almacebar filas
+    pila = [Estado(0)]
     i = 0
     
     while i < len(tokens):
-        estado_actual = pila[-1][0]  # Último estado en la pila
+        # Buscar el último estado en la pila
+        estado_actual = None
+        for elemento in reversed(pila):
+            if isinstance(elemento, Estado):
+                estado_actual = elemento.numero
+                break
+        
+        if estado_actual is None:
+            print("Error: No se encontró un estado válido en la pila.")
+            return
+        
         simbolo_actual = tokens[i]['tipo']  # Token actual
         entrada_restante = " ".join([t["valor"] for t in tokens[i:]])
         
@@ -157,31 +193,47 @@ def analizador_sintactico(tokens):
         
         accion = tablaLR[(estado_actual, simbolo_actual)]
         
-        # Agregar a la tabla antes de modificar la pila
-        tabla_proceso.append([" ".join([f"{s}" for s in pila]), entrada_restante, accion])
+        # Agregar a la tabla 
+        pila_visual = []
+        for elemento in pila:
+            if isinstance(elemento, Estado):
+                pila_visual.append(f"S({elemento.numero})")
+            elif isinstance(elemento, Terminal):
+                pila_visual.append(f"T({elemento.simbolo})")
+            elif isinstance(elemento, NoTerminal):
+                pila_visual.append(f"NT({elemento.simbolo})")
+        
+        tabla_proceso.append([" ".join(pila_visual), entrada_restante, accion])
         
         if accion.startswith('d'):  # Desplazamiento
             nuevo_estado = int(accion[1:])
-            pila.append((nuevo_estado, simbolo_actual))
+            pila.append(Terminal(simbolo_actual))
+            pila.append(Estado(nuevo_estado))
             i += 1
         elif accion == "r0":  # Aceptación
-            tabla_proceso.append([" ".join([f"{s}" for s in pila]), entrada_restante, "Aceptación"])
+            tabla_proceso.append([" ".join(pila_visual), entrada_restante, "Aceptación"])
             print(tabulate(tabla_proceso, headers=["Pila", "Entrada", "Acción"], tablefmt="grid"))
             return
         elif accion.startswith('r'):  # Reducción
             num_regla = int(accion[1:])
             longitud = lonReglas[num_regla - 1]
             
-            for _ in range(longitud):
+            for _ in range(longitud * 2):  # Quitar estado/simoblos
                 pila.pop()
             
-            estado_anterior = pila[-1][0]
-            if (estado_anterior, "E") not in tablaLR:
+            estado_anterior = None
+            for elemento in reversed(pila):
+                if isinstance(elemento, Estado):
+                    estado_anterior = elemento.numero
+                    break
+            
+            if estado_anterior is None or (estado_anterior, "E ") not in tablaLR:
                 print(f"Error: No hay transición definida para el estado {estado_anterior} y el símbolo E")
                 return
             
             nuevo_estado = int(tablaLR[(estado_anterior, "E")])
-            pila.append((nuevo_estado, "E"))
+            pila.append(NoTerminal("E"))
+            pila.append(Estado(nuevo_estado))
     
     print("Error: Entrada incompleta")
     print(tabulate(tabla_proceso, headers=["Pila", "Entrada", "Acción"], tablefmt="grid"))
@@ -194,3 +246,4 @@ if __name__ == "__main__":
     print(tabulate(tokens, headers="keys", tablefmt="grid"))
 
     analizador_sintactico(tokens)
+
